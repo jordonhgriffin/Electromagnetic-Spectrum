@@ -1,0 +1,1571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electromagnetic Spectrum</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Inter:wght@300;400;700&display=swap" rel="stylesheet">
+    <script type="importmap">
+        {
+          "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+          }
+        }
+    </script>
+    <style>
+        :root {
+            --bg-color: #020205;
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.6);
+            --accent-color: #4f46e5;
+            --glass-bg: rgba(10, 10, 20, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2;
+            padding: 2.5rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        header {
+            max-width: 600px;
+        }
+
+        h1 {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 3rem;
+            letter-spacing: -0.03em;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #fff 0%, rgba(255, 255, 255, 0.4) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .description {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+
+        /* HUD Panels */
+        .hud-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            pointer-events: auto;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .hud-panel:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Left Panel: Navigation */
+        .nav-panel {
+            width: 260px;
+            display: flex;
+            flex-direction: column;
+            border-radius: 16px;
+            overflow: hidden; /* clip children */
+        }
+
+        /* Reset button — sticky header, never scrolls away */
+        #btn-reset-view {
+            width: 100%;
+            text-align: center;
+            background: rgba(79, 70, 229, 0.1);
+            border: 1px solid rgba(79, 70, 229, 0.4);
+            border-radius: 0; /* inside panel */
+            padding: 0.75rem 1rem;
+            color: rgba(255,255,255,0.8);
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+            touch-action: manipulation; /* fast tap on mobile */
+        }
+        #btn-reset-view:hover {
+            background: rgba(79, 70, 229, 0.3);
+            color: white;
+            transform: none; /* override band-btn translateX */
+        }
+
+        /* Separator after reset button */
+        .nav-panel-scroll {
+            overflow-y: auto;
+            padding: 1rem 1.5rem 1.5rem;
+            max-height: calc(100vh - 380px); /* header offset + reset btn + bottom clearance */
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            touch-action: pan-y;              /* allow vertical touch scroll */
+            -webkit-overflow-scrolling: touch; /* momentum scroll on iOS */
+        }
+        .nav-panel-scroll::-webkit-scrollbar {
+            width: 4px;
+        }
+        .nav-panel-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .nav-panel-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 4px;
+        }
+
+        .right-column {
+            position: absolute;
+            bottom: 2.5rem;
+            right: 2.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            align-items: flex-end;
+            pointer-events: none;
+        }
+
+        .info-panel, .concepts-panel {
+            width: 340px;
+        }
+
+
+        .label-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .label-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--text-secondary);
+        }
+
+        .label-value {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        /* Bands Navigation */
+        .band-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .band-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            color: white;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: left;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .band-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(5px);
+        }
+
+        .band-btn.active {
+            background: var(--accent-color);
+            border-color: transparent;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4);
+        }
+
+        /* Scale Indicator */
+        .scale-indicator {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+        }
+
+        .scale-icon {
+            font-size: 1.5rem;
+            opacity: 0.8;
+        }
+
+        .scale-text {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        /* Wave Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .stat-box {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.75rem;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .stat-label {
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-value {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .spectrum-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            z-index: 1; /* always behind all HUD panels */
+        }
+
+        #progress-fill {
+            height: 100%;
+            width: 50%;
+            background: var(--accent-color);
+            box-shadow: 0 0 10px var(--accent-color);
+            transition: width 0.3s ease;
+        }
+
+        /* Version Badge */
+        #version-display {
+            position: fixed;
+            bottom: 12px; /* sits just above the 4px spectrum bar */
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            z-index: 100;
+            white-space: nowrap;
+            pointer-events: auto;
+        }
+
+        /* Crosshair */
+        #crosshair {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            width: 40px;
+            height: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        #crosshair::before, #crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        #crosshair::before { top: 50%; left: -10px; width: 10px; height: 1px; }
+        #crosshair::after { left: 50%; top: -10px; width: 1px; height: 10px; }
+
+        /* Scene Markers */
+        #markers-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+            overflow: hidden;
+        }
+
+        .scene-marker {
+            position: absolute;
+            top: 0;
+            left: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: rgba(10, 10, 20, 0.4);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 0.35rem 0.5rem;
+            border-radius: 6px;
+            pointer-events: auto;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            will-change: transform, opacity;
+            z-index: 10;
+        }
+
+        .scene-marker:hover {
+            border-color: var(--accent-color);
+            background: rgba(40, 60, 100, 0.6);
+            transform: scale(1.1) translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+        }
+
+        .scene-marker.telecom {
+            background: rgba(20, 30, 45, 0.3);
+            border-color: rgba(96, 165, 250, 0.2);
+            padding: 0.25rem 0.4rem;
+        }
+
+        .scene-marker.telecom:hover {
+            border-color: #60a5fa;
+            background: rgba(30, 50, 80, 0.5);
+        }
+
+        .marker-icon {
+            font-size: 1.25rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .marker-name {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: white;
+            white-space: nowrap;
+            letter-spacing: 0.05em;
+        }
+
+        /* ── Mobile Hamburger Toggle ── */
+        #nav-toggle {
+            display: none;
+            position: fixed;
+            bottom: 5rem;
+            left: 1.25rem;
+            width: 48px;
+            height: 48px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 50%;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            z-index: 300;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            pointer-events: auto;
+            transition: background 0.2s;
+        }
+        #nav-toggle:hover { background: rgba(79,70,229,0.4); }
+
+        /* Mobile overlay backdrop for nav drawer */
+        #nav-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 198;
+            pointer-events: auto;
+        }
+        #nav-backdrop.open { display: block; }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            #ui { padding: 1rem 1rem 5rem; }
+
+            h1 { font-size: 1.8rem; }
+            .description { font-size: 0.82rem; margin-bottom: 0.75rem; display: none; }
+
+            /* Nav panel becomes a compact bottom drawer on mobile */
+            .nav-panel {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                width: 100%;
+                max-height: 40vh;
+                border-radius: 20px 20px 0 0;
+                overflow: hidden;
+                z-index: 200;
+                transform: translateY(100%);
+                transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+                background: rgba(8, 8, 18, 0.97);
+                backdrop-filter: blur(24px);
+                border-top: 2px solid rgba(79,70,229,0.4);
+            }
+            .nav-panel.open { transform: translateY(0); }
+
+            #btn-reset-view { border-radius: 0; font-size: 0.9rem; }
+
+            .nav-panel-scroll {
+                max-height: calc(40vh - 50px);
+                padding: 1rem 1.25rem 3rem;
+                overscroll-behavior: contain;
+                touch-action: pan-y;
+            }
+
+            /* Hide right column on mobile — too cramped */
+            .right-column { display: none; }
+
+            /* Show hamburger */
+            #nav-toggle { display: flex; }
+
+            /* Info panel: full-width top banner on mobile */
+            #band-info-panel {
+                width: 100% !important;
+                max-width: 100% !important;
+                left: 0 !important;
+                top: 0 !important;
+                transform: translateY(-110%) !important;
+                border-radius: 0 !important;
+                z-index: 250;
+            }
+            #band-info-panel.visible {
+                transform: translateY(0) !important;
+            }
+            #band-info-panel .bip-inner {
+                border-radius: 0 0 16px 16px !important;
+                padding: 0.75rem 1rem 1rem !important;
+            }
+            #band-info-panel .bip-stats {
+                display: grid !important;
+                grid-template-columns: 1fr 1fr;
+                gap: 0.5rem;
+            }
+            #band-info-panel .bip-stat { white-space: normal; text-align: center; }
+            #band-info-panel .bip-wiki,
+            #band-info-panel .bip-close {
+                min-height: 44px;
+                padding: 0.6rem 1rem;
+                font-size: 0.85rem;
+            }
+
+            /* Crosshair is less useful on mobile */
+            #crosshair { display: none; }
+
+            /* Version badge — stays centered on mobile */
+            #version-display { font-size: 0.65rem; bottom: 8px; }
+
+            /* Progress bar */
+            .spectrum-bar { height: 3px; }
+
+            /* Scene markers — slightly larger touch targets */
+            .scene-marker { padding: 0.4rem 0.6rem; }
+            .marker-icon { font-size: 1rem; }
+            .marker-name { font-size: 0.7rem; }
+        }
+
+        @media (max-width: 480px) {
+            h1 { font-size: 1.4rem; }
+            #band-info-panel .bip-header { gap: 0.5rem; }
+            #band-info-panel .bip-icon { font-size: 1.25rem; }
+            #band-info-panel .bip-name { font-size: 0.95rem; }
+            #band-info-panel .bip-stats { grid-template-columns: 1fr 1fr; }
+        }
+
+        /* Color Swatch */
+        .color-swatch-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.5rem;
+            border-radius: 8px;
+        }
+        .color-swatch {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        .color-hex {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        /* Concepts Menu */
+        .concepts-panel {
+            max-height: 25vh;
+            overflow-y: auto;
+            padding: 1.5rem;
+        }
+
+        /* Custom scrollbar for concepts */
+        .concepts-panel::-webkit-scrollbar {
+            width: 4px;
+        }
+        .concepts-panel::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .concepts-panel::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        .concept-btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            cursor: pointer;
+            text-align: left;
+            font-size: 0.8rem;
+            margin-bottom: 0.5rem;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s;
+        }
+        .concept-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(5px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: rgba(15, 15, 25, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 2rem;
+            border-radius: 16px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .modal-title {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--accent-color);
+        }
+        .modal-body {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+        }
+        .close-btn {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        /* Band Info — Top-Center HUD Panel */
+        #band-info-panel {
+            position: fixed;
+            top: 2.5rem;
+            left: 50%;
+            transform: translateX(-50%) translateY(-130%);
+            width: 680px;
+            max-width: calc(100vw - 640px); /* stay clear of left nav + right panel */
+            z-index: 500;
+            pointer-events: none;
+            transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+            opacity: 0;
+        }
+        #band-info-panel.visible {
+            transform: translateX(-50%) translateY(0);
+            pointer-events: auto;
+            opacity: 1;
+        }
+        #band-info-panel .bip-inner {
+            background: rgba(10, 12, 24, 0.82);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-top: 3px solid var(--accent-color);
+            border-radius: 0 0 16px 16px;
+            padding: 1rem 1.5rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+        #band-info-panel .bip-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        #band-info-panel .bip-title-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        #band-info-panel .bip-icon { font-size: 1.8rem; }
+        #band-info-panel .bip-name {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin: 0;
+        }
+        #band-info-panel .bip-desc {
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin: 0;
+        }
+        #band-info-panel .bip-stats {
+            display: flex;
+            gap: 1rem;
+        }
+        #band-info-panel .bip-stat {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px;
+            padding: 0.3rem 0.7rem;
+            white-space: nowrap;
+        }
+        #band-info-panel .bip-stat strong {
+            color: #e2e8f0;
+            display: block;
+            font-size: 0.85rem;
+        }
+        #band-info-panel .bip-actions {
+            display: flex;
+            gap: 0.5rem;
+            align-items: stretch; /* both buttons same height */
+        }
+        #band-info-panel .bip-wiki {
+            display: flex;
+            align-items: center;
+            font-size: 0.78rem;
+            padding: 0.35rem 0.9rem;
+            background: rgba(99, 102, 241, 0.3);
+            border: 1px solid rgba(99, 102, 241, 0.5);
+            border-radius: 8px;
+            color: #a5b4fc;
+            text-decoration: none;
+            white-space: nowrap;
+            transition: background 0.2s;
+        }
+        #band-info-panel .bip-wiki:hover { background: rgba(99, 102, 241, 0.5); }
+        #band-info-panel .bip-close {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.5);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            padding: 0.35rem 0.8rem;
+            transition: all 0.2s;
+        }
+        #band-info-panel .bip-close:hover { color: white; border-color: rgba(255,255,255,0.3); }
+
+        /* Title row with Wikipedia badge */
+        .title-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .title-wiki {
+            font-size: 0.75rem;
+            padding: 0.3rem 0.8rem;
+            background: rgba(99, 102, 241, 0.2);
+            border: 1px solid rgba(99, 102, 241, 0.45);
+            border-radius: 20px;
+            color: #a5b4fc;
+            text-decoration: none;
+            white-space: nowrap;
+            transition: background 0.2s, border-color 0.2s;
+            letter-spacing: 0.02em;
+        }
+        .title-wiki:hover {
+            background: rgba(99, 102, 241, 0.4);
+            border-color: rgba(99, 102, 241, 0.7);
+            color: #c7d2fe;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div id="crosshair"></div>
+
+    <div id="ui">
+        <header>
+            <div class="title-row">
+                <h1>Electromagnetic Spectrum</h1>
+                <a class="title-wiki" href="https://en.wikipedia.org/wiki/Electromagnetic_spectrum" target="_blank" rel="noopener">Wikipedia ↗</a>
+            </div>
+            <p class="description">A grand visual navigation of the electromagnetic manifold, from cosmic gamma rays to planetary-scale radio waves.</p>
+
+            <div class="hud-panel nav-panel" id="nav-panel">
+                <button id="btn-reset-view">⟲ Reset View</button>
+
+                <div class="nav-panel-scroll">
+                <p class="label-title">Spectral Bands</p>
+                <div class="band-list">
+                    <button class="band-btn" data-log="-18" data-name="Cosmic Rays">Cosmic</button>
+                    <button class="band-btn" data-log="-14" data-name="Gamma Rays">Gamma</button>
+                    <button class="band-btn" data-log="-11" data-name="X-Rays">X-Ray</button>
+                    <button class="band-btn" data-log="-8" data-name="Ultraviolet">UV</button>
+                    <button class="band-btn active" data-log="-6.42" data-name="Visible Light">Visible</button>
+                    <button class="band-btn" data-log="-6.12" data-name="Infrared">Infrared</button>
+                    <button class="band-btn" data-log="-3" data-name="Microwaves">Microwave</button>
+                    <button class="band-btn" data-log="2" data-name="Radio Waves">Radio</button>
+                    <button class="band-btn" data-log="6" data-name="VLF / ELF">ELF</button>
+                </div>
+
+                <p class="label-title" style="margin-top: 1.5rem;">Telecommunications</p>
+                <div class="band-list" style="margin-bottom: 0.5rem;">
+                    <button class="band-btn" data-log="-5.882" data-name="O-Band" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">O-Band (1310nm)</button>
+                    <button class="band-btn" data-log="-5.850" data-name="E-Band" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">E-Band (1410nm)</button>
+                    <button class="band-btn" data-log="-5.825" data-name="S-Band" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">S-Band (1495nm)</button>
+                    <button class="band-btn" data-log="-5.809" data-name="C-Band" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">C-Band (1550nm)</button>
+                    <button class="band-btn" data-log="-5.797" data-name="L-Band" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">L-Band (1595nm)</button>
+                    <button class="band-btn" data-log="-5.782" data-name="U-Band" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">U-Band (1650nm)</button>
+                    <button class="band-btn" data-log="-1.0" data-name="5G / Wi-Fi" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">5G / Wi-Fi</button>
+                    <button class="band-btn" data-log="-0.3" data-name="UHF TV" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">UHF TV</button>
+                    <button class="band-btn" data-log="0.47" data-name="FM Radio" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">FM Radio</button>
+                    <button class="band-btn" data-log="2.47" data-name="AM Radio" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">AM Radio</button>
+                </div>
+                </div> <!-- end .nav-panel-scroll -->
+            </div> <!-- end .nav-panel -->
+        </header>
+
+        <div class="right-column">
+            <div class="hud-panel concepts-panel">
+                <p class="label-title" style="margin-bottom: 0.5rem;">Physical Concepts</p>
+                <div id="concepts-container">
+                    <!-- Concept buttons will be injected here -->
+                </div>
+            </div>
+
+            <div class="hud-panel info-panel">
+                <div class="label-group">
+                    <p class="label-title">Current Domain</p>
+                    <p class="label-value"><a href="#" id="domain-name" target="_blank" style="color: inherit; text-decoration: none; border-bottom: 2px dashed rgba(255,255,255,0.3);">Visible Light ↗</a></p>
+                    <div id="opacity-badge" class="badge" style="display:inline-block; margin-top:0.5rem; pointer-events:none;">Atmospheric Window</div>
+                </div>
+
+                <div class="scale-indicator">
+                    <span class="scale-icon" id="scale-icon">🦠</span>
+                    <span class="scale-text" id="scale-desc">Scale: Size of a single-cell organism.</span>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <p class="stat-label">Wavelength (λ) <span id="btn-units-help" style="cursor: pointer; padding-left: 0.25rem; font-weight: bold; color: var(--accent-color);">[?]</span></p>
+                        <p class="stat-value" id="val-wavelength">550 nm</p>
+                    </div>
+                    <div class="stat-box">
+                        <p class="stat-label">Frequency (ν)</p>
+                        <p class="stat-value" id="val-frequency">545 THz</p>
+                    </div>
+                    <div class="stat-box">
+                        <p class="stat-label">Emitter</p>
+                        <p class="stat-value" id="val-emitter">The Sun</p>
+                    </div>
+                    <div class="stat-box">
+                        <p class="stat-label">Detector</p>
+                        <p class="stat-value" id="val-detector">Human Eye</p>
+                    </div>
+                    <div class="stat-box">
+                        <p class="stat-label">Energy (E)</p>
+                        <p class="stat-value" id="val-energy">2.25 eV</p>
+                    </div>
+                    <div class="stat-box">
+                        <p class="stat-label">Scale Obj</p>
+                        <p class="stat-value" id="val-object">Bacteria</p>
+                    </div>
+                </div>
+
+                <div class="color-swatch-container">
+                    <div class="color-swatch" id="vis-swatch" style="background: transparent;"></div>
+                    <span class="color-hex" id="vis-text">Invisible to Human Eye</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Mobile nav drawer toggle -->
+    <button id="nav-toggle" aria-label="Open navigation">☰</button>
+    <div id="nav-backdrop"></div>
+
+    <!-- Modal for Concepts -->
+    <div class="modal-overlay" id="concept-modal">
+        <div class="modal-content">
+            <h2 class="modal-title" id="modal-title">Concept</h2>
+            <div class="modal-body" id="modal-body">Concept description...</div>
+            <button class="close-btn" id="modal-close">Close</button>
+        </div>
+    </div>
+
+    <div class="spectrum-bar">
+        <div id="progress-fill"></div>
+    </div>
+
+    <div id="version-display">
+        Version 26.3.3.1 | <a href="https://www.jordonhgriffin.com" target="_blank" style="color: inherit; text-decoration: underline;">Made by JHG</a>
+    </div>
+
+    <div id="markers-container"></div>
+
+    <!-- Band Info — Top-Center HUD Panel -->
+    <div id="band-info-panel">
+        <div class="bip-inner">
+            <div class="bip-header">
+                <div class="bip-title-row">
+                    <span class="bip-icon" id="bip-icon">🌌</span>
+                    <div>
+                        <p class="bip-name" id="bip-name">Band Name</p>
+                    </div>
+                </div>
+                <div class="bip-actions">
+                    <a class="bip-wiki" id="bip-link" href="#" target="_blank">Wikipedia ↗</a>
+                    <button class="bip-close" id="bip-close">✕ Close</button>
+                </div>
+            </div>
+            <p class="bip-desc" id="bip-desc">Description loads here...</p>
+            <div class="bip-stats" id="bip-stats"></div>
+        </div>
+    </div>
+
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- Configuration ---
+        const SPAN_LOG_MIN = -18; // 10^-18 meters (Cosmic/Gamma)
+        const SPAN_LOG_MAX = 8;   // 10^8 meters (ELF / Planetary)
+        const WORLD_SCALE = 200;  // Adjusted for wider span
+
+        // Spectral Data from Research (Updated boundaries for shader alignment)
+        const BANDS = [
+            { name: "Cosmic Rays", log: -18, color: "#9333ea", icon: "🌌", desc: "Subatomic Scale", obj: "Proton", emitter: "Supernovae / Blazars", detector: "Cherenkov Scopes", window: false, link: "https://en.wikipedia.org/wiki/Cosmic_ray", info: "High-energy protons and atomic nuclei that move through space at nearly the speed of light. They originate from supernovae, blazars, and other energetic galactic events." },
+            { name: "Gamma Rays", log: -14, color: "#a855f7", icon: "⚛️", desc: "Atomic Nucleus", obj: "Nucleus", emitter: "Radioactive Decay", detector: "Geiger Counter", window: false, link: "https://en.wikipedia.org/wiki/Gamma_ray", info: "Extremely high-frequency electromagnetic radiation produced by radioactive decay or thermonuclear reactions in stars. They have the shortest wavelengths and highest energy." },
+            { name: "X-Rays", log: -11, color: "#3b82f6", icon: "🦴", desc: "Atomic Scale", obj: "Atom", emitter: "X-Ray Tubes / Pulsars", detector: "Scintillators", window: false, link: "https://en.wikipedia.org/wiki/X-ray", info: "Used primarily for medical imaging and examining atomic structures. They are produced by high-energy electron transitions or x-ray pulsars in deep space." },
+            { name: "Ultraviolet", log: -8, color: "#2dd4bf", icon: "☀️", desc: "Molecular Scale", obj: "Molecule", emitter: "Hot Stars", detector: "Fluorescence", window: false, link: "https://en.wikipedia.org/wiki/Ultraviolet", info: "Radiation with wavelengths shorter than visible light but longer than X-rays. It's responsible for sunburns and is used for sterilization and forensic analysis." },
+            { name: "Visible Light", log: -6.42, color: "#fbbf24", icon: "👁️", desc: "Cellular Scale", obj: "Bacteria", emitter: "Stars / Lamps", detector: "The Human Eye", window: true, link: "https://en.wikipedia.org/wiki/Visible_spectrum", info: "The tiny sliver of the spectrum detectable by the human eye, ranging from ~380nm (violet) to ~750nm (red)." }, // 380nm
+            { name: "Infrared", log: -6.12, color: "#f97316", icon: "🔥", desc: "Thread Scale", obj: "Human Hair", emitter: "Heated Bodies", detector: "Bolometers", window: false, link: "https://en.wikipedia.org/wiki/Infrared", info: "Thermal radiation emitted by all objects above absolute zero. Used in night vision, remote controls, and fiber-optic communication." }, // 750 nm
+            { name: "Microwaves", log: -3, color: "#ef4444", icon: "📱", desc: "Human Scale", obj: "Humans", emitter: "Magnetrons", detector: "Antennas", window: false, link: "https://en.wikipedia.org/wiki/Microwave", info: "Used for radar, satellite communication, and heating food. They bridge the gap between infrared and radio waves." },
+            { name: "Radio Waves", log: 2, color: "#ec4899", icon: "📻", desc: "City Scale", obj: "Buildings", emitter: "Broadcast Antennas", detector: "Radio Receivers", window: true, link: "https://en.wikipedia.org/wiki/Radio_wave", info: "The longest wavelengths in the spectrum, used for everything from AM/FM broadcasts to global positioning and deep-space communication." },
+            { name: "VLF / ELF", log: 6, color: "#8b5cf6", icon: "🌍", desc: "Planetary Scale", obj: "Earth / Mountains", emitter: "Lightning / Tech", detector: "Giant Antennas", window: false, link: "https://en.wikipedia.org/wiki/Extremely_low_frequency", info: "Extremely Low Frequency waves that can penetrate deep into the earth and oceans, used for submarine communication and lightning detection." }
+        ];
+
+        // Specific emphasis for telecom bands along the ribbon
+        const TELECOM_MARKERS = [
+            { name: "O-Band", log: -5.882, icon: "🟢", offsetY: -5,  offsetZ: -35, info: "Original Band (1260–1360 nm). Features low dispersion and is widely used for metropolitan networks.", link: "https://en.wikipedia.org/wiki/Optical_window" },
+            { name: "E-Band", log: -5.850, icon: "💧", offsetY: -15, offsetZ: -15, info: "Extended Band (1360–1460 nm). Formerly limited by water-peak absorption, now used for high-bandwidth fiber.", link: "https://en.wikipedia.org/wiki/Optical_window" },
+            { name: "S-Band", log: -5.825, icon: "🔵", offsetY: -25, offsetZ: 5,   info: "Short-wavelength Band (1460–1530 nm). Used for optical amplification and PON networks.", link: "https://en.wikipedia.org/wiki/Optical_window" },
+            { name: "C-Band", log: -5.809, icon: "🔴", offsetY: -5,  offsetZ: 35,  info: "Conventional Band (1530–1565 nm). Most widely used for long-haul DWDM systems due to minimum fiber loss.", link: "https://en.wikipedia.org/wiki/Optical_window" },
+            { name: "L-Band", log: -5.797, icon: "🟣", offsetY: -15, offsetZ: 15,  info: "Long-wavelength Band (1565–1625 nm). Used to expand capacity when the C-band is full.", link: "https://en.wikipedia.org/wiki/Optical_window" },
+            { name: "U-Band", log: -5.782, icon: "⚪", offsetY: -25, offsetZ: -5,  info: "Ultra-long Band (1625–1675 nm). Primarily used for network monitoring and maintenance.", link: "https://en.wikipedia.org/wiki/Optical_window" },
+            { name: "5G / Wi-Fi (GHz)", log: -1.0, icon: "📶", offsetY: -6, offsetZ: 25, info: "High-frequency microwave bands used for multi-gigabit wireless data transmission.", link: "https://en.wikipedia.org/wiki/5G" },
+            { name: "UHF TV", log: -0.3, icon: "📺", offsetY: -6, offsetZ: 25, info: "Ultra High Frequency television broadcasting, ranging from 300 MHz to 3 GHz.", link: "https://en.wikipedia.org/wiki/Ultra_high_frequency" },
+            { name: "FM Radio", log: 0.47, icon: "📻", offsetY: -6, offsetZ: 25, info: "Frequency Modulation broadcasting used for high-fidelity audio transmission.", link: "https://en.wikipedia.org/wiki/FM_broadcasting" },
+            { name: "AM Radio", log: 2.47, icon: "🎙️", offsetY: -6, offsetZ: 25, info: "Amplitude Modulation broadcasting, used for long-distance audio transmission via ground waves.", link: "https://en.wikipedia.org/wiki/AM_broadcasting" }
+        ];
+
+        // --- Scene Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x020205, 0.012);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1500);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxPolarAngle = Math.PI * 0.7;
+        controls.minPolarAngle = Math.PI * 0.3;
+        controls.enableZoom = true;
+        controls.mouseButtons = {
+            LEFT: THREE.MOUSE.PAN,
+            MIDDLE: THREE.MOUSE.DOLLY,
+            RIGHT: THREE.MOUSE.ROTATE
+        };
+
+        // Disable OrbitControls when touch starts inside a UI panel
+        // (prevents 3D controls from eating scroll gestures in the nav drawer)
+        document.addEventListener('touchstart', (e) => {
+            if (e.target.closest('#nav-panel, #band-info-panel, .modal-overlay, .right-column')) {
+                controls.enabled = false;
+            }
+        }, { passive: true });
+        document.addEventListener('touchend', () => {
+            controls.enabled = true;
+        }, { passive: true });
+
+        // Start from a distance to see the entire spectrum (-200 to 200)
+        camera.position.set(0, 110, 250);
+        controls.target.set(0, 0, 0);
+
+        // Ribbon parameters
+        const ribbonLength = 400;
+        const ribbonWidth = 60; // Widened as per request
+        const ribbonSegments = 3000;
+
+        const ribbonGeo = new THREE.PlaneGeometry(ribbonLength, ribbonWidth, ribbonSegments, 1);
+        ribbonGeo.rotateX(-Math.PI / 2);
+
+        const ribbonShader = {
+            uniforms: {
+                uTime: { value: 0 },
+                uWarp: { value: 0 }
+            },
+            vertexShader: `
+                varying vec2 vUv;
+                varying float vWave;
+                uniform float uTime;
+
+                void main() {
+                    vUv = uv;
+
+                    // Wave frequency depends on X (log scale)
+                    // At negative X (left), frequency is high (Gamma)
+                    // At positive X (right), frequency is low (Radio)
+                    // Wave frequency depends on X (log scale)
+                    float freq = exp(-position.x * 0.035) * 5.0;
+                    float wave = sin(position.x * freq + uTime * 6.0) * 1.5; // Scaled wave amplitude for wider ribbon
+
+                    vec3 pos = position;
+                    pos.y += wave * (1.1 - abs(vUv.y - 0.5) * 2.1);
+                    vWave = wave;
+
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+                }
+            `,
+            fragmentShader: `
+                varying vec2 vUv;
+                varying float vWave;
+                uniform float uTime;
+
+                vec3 getSpectrumColor(float x, float y) {
+                    // Adjusted boundaries: -6.42 log -> ~ -21.85, -6.12 log -> ~ -17.23
+                    // The rainbow should have fully faded out by -17.23 so Infrared starts black/grey
+                    float tVis = smoothstep(-22.8, -21.8, x) * (1.0 - smoothstep(-18.0, -17.2, x));
+
+                    // Rainbow color calculation (mapped linearly to -21.85 to -17.23)
+                    float t = clamp((x - (-21.85)) / 4.62, 0.0, 1.0);
+                    vec3 rainbow = vec3(0.0);
+                    if (t < 0.2) rainbow = mix(vec3(0.5, 0.0, 1.0), vec3(0.0, 0.0, 1.0), t * 5.0);
+                    else if (t < 0.4) rainbow = mix(vec3(0.0, 0.0, 1.0), vec3(0.0, 1.0, 0.0), (t - 0.2) * 5.0);
+                    else if (t < 0.6) rainbow = mix(vec3(0.0, 1.0, 0.0), vec3(1.0, 1.0, 0.0), (t - 0.4) * 5.0);
+                    else if (t < 0.8) rainbow = mix(vec3(1.0, 1.0, 0.0), vec3(1.0, 0.5, 0.0), (t - 0.6) * 5.0);
+                    else rainbow = mix(vec3(1.0, 0.5, 0.0), vec3(1.0, 0.0, 0.0), (t - 0.8) * 5.0);
+
+                    // Map y to lightness (saturation) to mimic the bicone: white at top (y=1), black at bottom (y=0)
+                    vec3 biconeColor;
+                    if (y > 0.5) {
+                        // Top half: color to white
+                        biconeColor = mix(rainbow, vec3(1.0), (y - 0.5) * 2.0);
+                    } else {
+                        // Bottom half: black to color
+                        biconeColor = mix(vec3(0.0), rainbow, y * 2.0);
+                    }
+
+                    // Invisible light is rendered as a clean glowing grey
+                    vec3 invisibleColor = vec3(0.4, 0.4, 0.42);
+
+                    return mix(invisibleColor, biconeColor, tVis);
+                }
+
+                void main() {
+                    float xPos = (vUv.x - 0.5) * 400.0;
+                    vec3 color = getSpectrumColor(xPos, vUv.y);
+
+                    // Add a stronger glow to invisible light so it still looks dynamic
+                    float glow = mix(0.3 / (0.3 + abs(vWave)), 0.15 / (0.15 + abs(vWave)), color.r);
+
+                    // Adjusted alpha curve so the white and black edges are clearly visible before fading out
+                    float alpha = smoothstep(0.0, 0.05, vUv.y) * smoothstep(1.0, 0.95, vUv.y);
+
+                    gl_FragColor = vec4(color * (1.1 + glow), alpha * 0.9);
+                }
+            `
+        };
+
+        const ribbonMat = new THREE.ShaderMaterial({
+            uniforms: ribbonShader.uniforms,
+            vertexShader: ribbonShader.vertexShader,
+            fragmentShader: ribbonShader.fragmentShader,
+            transparent: true,
+            side: THREE.DoubleSide,
+            blending: THREE.AdditiveBlending
+        });
+
+        const ribbon = new THREE.Mesh(ribbonGeo, ribbonMat);
+        scene.add(ribbon);
+
+        // 2. Stars / Particle Background
+        const starCount = 5000;
+        const starGeo = new THREE.BufferGeometry();
+        const starPositions = new Float32Array(starCount * 3);
+        for(let i=0; i<starCount * 3; i++) {
+            starPositions[i] = (Math.random() - 0.5) * 500;
+        }
+        starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+        const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.1, transparent: true, opacity: 0.5 });
+        const stars = new THREE.Points(starGeo, starMat);
+        scene.add(stars);
+
+        // 3. Labels and Grid
+        const gridHelper = new THREE.GridHelper(400, 40, 0x111122, 0x050510);
+        gridHelper.position.y = -2;
+        scene.add(gridHelper);
+
+        // --- Interaction Logic ---
+
+        const uiElements = {
+            domain: document.getElementById('domain-name'),
+            opacity: document.getElementById('opacity-badge'),
+            wavelength: document.getElementById('val-wavelength'),
+            frequency: document.getElementById('val-frequency'),
+            energy: document.getElementById('val-energy'),
+            object: document.getElementById('val-object'),
+            icon: document.getElementById('scale-icon'),
+            desc: document.getElementById('scale-desc'),
+            emitter: document.getElementById('val-emitter'),
+            detector: document.getElementById('val-detector'),
+            progress: document.getElementById('progress-fill'),
+            visSwatch: document.getElementById('vis-swatch'),
+            visText: document.getElementById('vis-text')
+        };
+
+        const CONCEPTS = [
+            { id: 'reflection', title: 'Reflection', body: 'The bouncing of electromagnetic waves off a surface. The angle of incidence equals the angle of reflection. Examples include light reflecting off mirrors and radio waves bouncing off the ionosphere.', link: 'https://en.wikipedia.org/wiki/Reflection_(physics)' },
+            { id: 'refraction', title: 'Refraction', body: 'The bending of waves as they pass from one medium to another due to a change in speed. Examples include light bending through glass prisms and radio wave refraction in the atmosphere.', link: 'https://en.wikipedia.org/wiki/Refraction' },
+            { id: 'diffraction', title: 'Diffraction', body: 'The bending of waves around obstacles and through apertures. Examples include radio waves diffracting around buildings and X-ray diffraction by crystal lattices.', link: 'https://en.wikipedia.org/wiki/Diffraction' },
+            { id: 'interference', title: 'Interference', body: 'The superposition of waves leading to constructive or destructive patterns. Applications include signal propagation (multipath interference) and standing wave formation.', link: 'https://en.wikipedia.org/wiki/Wave_interference' },
+            { id: 'polarization', title: 'Polarization', body: 'The orientation of the transverse wave oscillations. Applications include radio antennas (horizontal vs. vertical polarization) and polarized light filtering.', link: 'https://en.wikipedia.org/wiki/Polarization_(waves)' },
+            { id: 'doppler', title: 'Doppler Effect', body: 'The change in frequency or wavelength of a wave in relation to an observer who is moving relative to the wave source. Explains cosmological redshift and radar speed detection.', link: 'https://en.wikipedia.org/wiki/Doppler_effect' },
+            { id: 'photoelectric', title: 'Photoelectric Effect', body: 'The emission of electrons when EM radiation, such as light, hits a material. The energy of ejected electrons depends on frequency, not intensity, demonstrating the particle (photon) nature of EM radiation.', link: 'https://en.wikipedia.org/wiki/Photoelectric_effect' },
+            { id: 'compton', title: 'Compton Effect', body: 'The scattering of X-ray photons by electrons, resulting in a decrease in energy and an increase in wavelength. Demonstrates that photons have momentum.', link: 'https://en.wikipedia.org/wiki/Compton_scattering' },
+            { id: 'cosmic', title: 'Cosmic Ray Effects', body: 'Secondary cosmic ray particle showers and Earth\'s magnetic field deflection of charged cosmic particles. Foundational to high-energy physics.', link: 'https://en.wikipedia.org/wiki/Cosmic_ray#Effects' }
+        ];
+
+        // Initialize Concepts UI & Conversion Modal
+        const conceptsContainer = document.getElementById('concepts-container');
+        const conceptModal = document.getElementById('concept-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalBody = document.getElementById('modal-body');
+        const modalClose = document.getElementById('modal-close');
+
+        CONCEPTS.forEach(concept => {
+            const btn = document.createElement('button');
+            btn.className = 'concept-btn';
+            btn.innerHTML = `<span>${concept.title}</span> <span>→</span>`;
+            btn.onclick = () => {
+                modalTitle.innerHTML = `${concept.title} <a href="${concept.link}" target="_blank" style="font-size: 0.7em; opacity: 0.7; color: white;">[Wiki ↗]</a>`;
+                modalBody.textContent = concept.body;
+                conceptModal.style.display = 'flex';
+            };
+            conceptsContainer.appendChild(btn);
+        });
+
+        // Wavelength Units Modal setup
+        document.getElementById('btn-units-help').addEventListener('click', () => {
+            modalTitle.innerHTML = `Wavelength Unit Conversions <a href="https://en.wikipedia.org/wiki/Metric_prefix" target="_blank" style="font-size: 0.7em; opacity: 0.7; color: white;">[Wiki ↗]</a>`;
+            modalBody.innerHTML = `
+                <table style="width: 100%; border-collapse: collapse; text-align: left; margin-top: 0.5rem; color: #fff;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.2);">
+                            <th style="padding: 0.75rem;">Unit</th>
+                            <th style="padding: 0.75rem;">Symbol</th>
+                            <th style="padding: 0.75rem;">Meters</th>
+                            <th style="padding: 0.75rem;">Scientific</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td style="padding: 0.75rem;">Kilometer</td><td style="padding: 0.75rem;">km</td><td style="padding: 0.75rem;">1,000 m</td><td style="padding: 0.75rem;">10³ m</td></tr>
+                        <tr><td style="padding: 0.75rem;">Meter</td><td style="padding: 0.75rem;">m</td><td style="padding: 0.75rem;">1 m</td><td style="padding: 0.75rem;">10⁰ m</td></tr>
+                        <tr><td style="padding: 0.75rem;">Millimeter</td><td style="padding: 0.75rem;">mm</td><td style="padding: 0.75rem;">0.001 m</td><td style="padding: 0.75rem;">10⁻³ m</td></tr>
+                        <tr><td style="padding: 0.75rem;">Micrometer</td><td style="padding: 0.75rem;">µm</td><td style="padding: 0.75rem;">0.000001 m</td><td style="padding: 0.75rem;">10⁻⁶ m</td></tr>
+                        <tr style="background: rgba(79, 70, 229, 0.2);"><td style="padding: 0.75rem; font-weight: 600; color: #fbbf24;">Nanometer</td><td style="padding: 0.75rem; color: #fbbf24;">nm</td><td style="padding: 0.75rem; color: #fbbf24;">0.000000001 m</td><td style="padding: 0.75rem; color: #fbbf24;">10⁻⁹ m</td></tr>
+                        <tr><td style="padding: 0.75rem;">Picometer</td><td style="padding: 0.75rem;">pm</td><td style="padding: 0.75rem;">0.000000000001 m</td><td style="padding: 0.75rem;">10⁻¹² m</td></tr>
+                        <tr><td style="padding: 0.75rem;">Femtometer</td><td style="padding: 0.75rem;">fm</td><td style="padding: 0.75rem;">0.000000000000001 m</td><td style="padding: 0.75rem;">10⁻¹⁵ m</td></tr>
+                    </tbody>
+                </table>
+                <p style="margin-top: 1rem; font-size: 0.9em; opacity: 0.8; line-height: 1.5;">
+                    <strong>Note:</strong> Visible light ranges from approximately 380 nm (violet) to 750 nm (red). 1 nanometer (nm) equals one billionth of a meter.
+                </p>
+            `;
+            conceptModal.style.display = 'flex';
+        });
+
+        modalClose.onclick = () => {
+            conceptModal.style.display = 'none';
+        };
+        conceptModal.onclick = (e) => {
+            if(e.target === conceptModal) conceptModal.style.display = 'none';
+        }
+
+        // --- Physics Calculations ---
+
+        function wavelengthToHex(wavelength, targetZ = 0) {
+            let nm = wavelength * 1e9;
+            if (nm < 380 || nm > 750) return null; // Invisible
+
+            let r, g, b;
+            if (nm >= 380 && nm < 440) { r = -(nm - 440) / (440 - 380); g = 0.0; b = 1.0; }
+            else if (nm >= 440 && nm < 490) { r = 0.0; g = (nm - 440) / (490 - 440); b = 1.0; }
+            else if (nm >= 490 && nm < 510) { r = 0.0; g = 1.0; b = -(nm - 510) / (510 - 490); }
+            else if (nm >= 510 && nm < 580) { r = (nm - 510) / (580 - 510); g = 1.0; b = 0.0; }
+            else if (nm >= 580 && nm < 645) { r = 1.0; g = -(nm - 645) / (645 - 580); b = 0.0; }
+            else if (nm >= 645 && nm <= 750) { r = 1.0; g = 0.0; b = 0.0; }
+
+            let factor = 1.0;
+            if (nm >= 380 && nm < 420) factor = 0.3 + 0.7 * (nm - 380) / (420 - 380);
+            else if (nm >= 700 && nm <= 750) factor = 0.3 + 0.7 * (750 - nm) / (750 - 700);
+
+            // Bicone light/dark mapping based on Z position
+            // width goes from Z = -30 (white) to Z = 30 (black)
+            let targetY = 0.5 - (targetZ / 60);
+            targetY = Math.max(0, Math.min(1, targetY));
+
+            if (targetY > 0.5) {
+                // Mix to white
+                let mixVal = (targetY - 0.5) * 2.0;
+                r = r + (1.0 - r) * mixVal;
+                g = g + (1.0 - g) * mixVal;
+                b = b + (1.0 - b) * mixVal;
+            } else {
+                // Mix to black
+                let mixVal = targetY * 2.0;
+                r = r * mixVal;
+                g = g * mixVal;
+                b = b * mixVal;
+            }
+
+            const gamma = 0.80;
+            const toHex = (c) => {
+                let val = Math.round(Math.pow(c * factor, gamma) * 255);
+                val = Math.max(0, Math.min(255, val));
+                let hex = val.toString(16);
+                return hex.length === 1 ? '0' + hex : hex;
+            };
+
+            return '#' + toHex(r) + toHex(g) + toHex(b);
+        }
+
+        function formatValue(val, unit, forceNm = false) {
+            if (unit === 'm' && forceNm) {
+                return (val * 1e9).toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' nm';
+            }
+            if (val >= 1e12) return (val / 1e12).toFixed(2) + ' T' + unit;
+            if (val >= 1e9) return (val / 1e9).toFixed(2) + ' G' + unit;
+            if (val >= 1e6) return (val / 1e6).toFixed(2) + ' M' + unit;
+            if (val >= 1e3) return (val / 1e3).toFixed(2) + ' k' + unit;
+            if (val < 1e-9) return (val * 1e12).toFixed(2) + ' pm';
+            if (val < 1e-6) return (val * 1e9).toFixed(2) + ' nm';
+            if (val < 1e-3) return (val * 1e6).toFixed(2) + ' μm';
+            if (val < 1) return (val * 1e3).toFixed(2) + ' mm';
+            return val.toFixed(2) + ' ' + unit;
+        }
+
+        function updateUI() {
+            // Camera targeting maps to Log Wavelength
+            // We use controls.target.x to represent the true center reticle
+            const t = (controls.target.x + 200) / 400;
+            const logWavelength = SPAN_LOG_MIN + t * (SPAN_LOG_MAX - SPAN_LOG_MIN);
+            const wavelength = Math.pow(10, logWavelength);
+
+            // Physics constants
+            const c = 299792458; // speed of light
+            const h = 4.1356e-15; // Planck constant in eV*s
+            const frequency = c / wavelength;
+            const energy = h * frequency;
+
+            // Find current band
+            let currentBand = BANDS[0];
+            for (const band of BANDS) {
+                if (logWavelength >= band.log) {
+                    currentBand = band;
+                }
+            }
+
+            // Update DOM
+            uiElements.domain.innerHTML = `${currentBand.name} ↗`;
+            uiElements.domain.href = currentBand.link;
+            uiElements.domain.style.borderColor = currentBand.color;
+
+            uiElements.opacity.textContent = currentBand.window ? "Atmospheric Window" : "Opaque / Absorbed";
+            uiElements.opacity.style.background = currentBand.window ? "rgba(76, 175, 80, 0.2)" : "rgba(255, 87, 34, 0.2)";
+            uiElements.opacity.style.color = currentBand.window ? "#81c784" : "#ff8a65";
+
+            // Check if looking at telecom band range (1260nm to 1675nm)
+            const nm = wavelength * 1e9;
+            const isTelecomRange = nm >= 1260 && nm <= 1675;
+
+            uiElements.wavelength.innerHTML = formatValue(wavelength, 'm', isTelecomRange) + (isTelecomRange ? ' <span style="font-size:0.65rem; opacity:0.8; font-weight:normal; vertical-align:middle;">(Telecom Scale)</span>' : '');
+
+
+            uiElements.frequency.textContent = formatValue(frequency, 'Hz');
+            uiElements.energy.textContent = energy < 0.001 ? energy.toExponential(2) + ' eV' : energy.toFixed(currentBand.name === 'Radio Waves' ? 8 : 2) + ' eV';
+            uiElements.object.textContent = currentBand.obj;
+            uiElements.icon.textContent = currentBand.icon;
+            uiElements.desc.textContent = `Scale: ${currentBand.desc}.`;
+            uiElements.emitter.textContent = currentBand.emitter;
+            uiElements.detector.textContent = currentBand.detector;
+            uiElements.progress.style.width = (t * 100) + '%';
+
+            // Visible Light Hex check logic that includes targetZ
+            const hexColor = wavelengthToHex(wavelength, controls.target.z);
+            if (hexColor) {
+                uiElements.visSwatch.style.background = hexColor;
+                uiElements.visSwatch.style.borderColor = hexColor;
+                uiElements.visText.textContent = `Visible: ${hexColor.toUpperCase()}`;
+                uiElements.visText.style.color = hexColor;
+            } else {
+                uiElements.visSwatch.style.background = 'transparent';
+                uiElements.visSwatch.style.borderColor = 'rgba(255,255,255,0.3)';
+                uiElements.visText.textContent = `Invisible to Human Eye`;
+                uiElements.visText.style.color = 'var(--text-secondary)';
+            }
+
+            // Highlight active button
+            document.querySelectorAll('.band-btn').forEach(btn => {
+                if (btn.dataset.name === currentBand.name) btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
+        }
+
+        // --- Scene Markers ---
+        const markersContainer = document.getElementById('markers-container');
+        const sceneMarkers = [];
+
+        // Create elements for Major Bands
+
+        // Create elements for Major Bands
+        BANDS.forEach(band => {
+            const t = (band.log - SPAN_LOG_MIN) / (SPAN_LOG_MAX - SPAN_LOG_MIN);
+            const targetX = -200 + t * 400;
+
+            const el = document.createElement('div');
+            el.className = 'scene-marker';
+            el.innerHTML = `
+                <div class="marker-icon">${band.icon}</div>
+                <div class="marker-name">${band.name}</div>
+            `;
+            el.onclick = () => showBandInfo(band.name);
+            markersContainer.appendChild(el);
+
+            sceneMarkers.push({
+                element: el,
+                pos: new THREE.Vector3(targetX, 4, 0)
+            });
+        });
+
+        // Create elements for Telecom Markers
+        TELECOM_MARKERS.forEach(band => {
+            const t = (band.log - SPAN_LOG_MIN) / (SPAN_LOG_MAX - SPAN_LOG_MIN);
+            const targetX = -200 + t * 400;
+
+            const el = document.createElement('div');
+            el.className = 'scene-marker telecom';
+            el.innerHTML = `
+                <div class="marker-icon" style="font-size:0.8rem;">${band.icon}</div>
+                <div class="marker-name" style="color:#60a5fa; font-size:0.6rem; border-top:1px solid rgba(96,165,250,0.2); margin-top:1px; padding-top:1px;">${band.name}</div>
+            `;
+            el.onclick = () => showBandInfo(band.name);
+            markersContainer.appendChild(el);
+
+            const posY = band.offsetY !== undefined ? band.offsetY : -4;
+            const posZ = band.offsetZ !== undefined ? band.offsetZ : 25;
+
+            sceneMarkers.push({
+                element: el,
+                pos: new THREE.Vector3(targetX, posY, posZ)
+            });
+        });
+
+        // --- Info Panel Logic ---
+        function showBandInfo(name) {
+            const band = BANDS.find(b => b.name === name) || TELECOM_MARKERS.find(b => b.name === name);
+            if (!band) return;
+
+            document.getElementById('bip-icon').textContent = band.icon;
+            document.getElementById('bip-name').textContent = band.name;
+            document.getElementById('bip-desc').textContent = band.info || 'Detailed information about this spectral band.';
+            document.getElementById('bip-link').href = band.link || '#';
+
+            // Build inline stats chips
+            const wavelength = Math.pow(10, band.log);
+            const nm = wavelength * 1e9;
+            const isTelecomRange = nm >= 1260 && nm <= 1675;
+            const c = 299792458;
+            const freq = c / wavelength;
+
+            document.getElementById('bip-stats').innerHTML = `
+                <div class="bip-stat"><strong>${formatValue(wavelength, 'm', isTelecomRange)}</strong>Wavelength</div>
+                <div class="bip-stat"><strong>${formatValue(freq, 'Hz')}</strong>Frequency</div>
+                ${band.desc ? `<div class="bip-stat"><strong>${band.desc}</strong>Scale</div>` : ''}
+                ${band.obj  ? `<div class="bip-stat"><strong>${band.obj}</strong>Analog</div>` : ''}
+            `;
+
+            document.getElementById('band-info-panel').classList.add('visible');
+        }
+
+        // Close panel logic
+        const infoPanel = document.getElementById('band-info-panel');
+        document.getElementById('bip-close').onclick = () => infoPanel.classList.remove('visible');
+
+        // Bind panel buttons to also open info
+        document.querySelectorAll('.band-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const log = parseFloat(btn.dataset.log);
+                const name = btn.dataset.name;
+                if (!isNaN(log)) {
+                    // Pan camera
+                    new TWEEN.Tween(controls.target)
+                        .to({ x: -200 + ((log - SPAN_LOG_MIN) / (SPAN_LOG_MAX - SPAN_LOG_MIN)) * 400 }, 1000)
+                        .easing(TWEEN.Easing.Quadratic.Out)
+                        .start();
+
+                    // Show info panel after a short delay (or immediately)
+                    setTimeout(() => showBandInfo(name), 300);
+                }
+            });
+        });
+
+        // --- Navigation & Scrolling ---
+        document.getElementById('btn-reset-view').addEventListener('click', () => {
+            const duration = 1500;
+            const start = performance.now();
+            const camStartX = camera.position.x;
+            const camStartY = camera.position.y;
+            const camStartZ = camera.position.z;
+            const targetStartX = controls.target.x;
+            const targetStartZ = controls.target.z;
+
+            function step(now) {
+                const elapsed = now - start;
+                const progress = Math.min(elapsed / duration, 1);
+                const ease = 1 - Math.pow(1 - progress, 3);
+
+                camera.position.set(
+                    camStartX + (0 - camStartX) * ease,
+                    camStartY + (110 - camStartY) * ease,
+                    camStartZ + (250 - camStartZ) * ease
+                );
+                controls.target.set(
+                    targetStartX + (0 - targetStartX) * ease,
+                    0,
+                    targetStartZ + (0 - targetStartZ) * ease
+                );
+
+                if (progress < 1) requestAnimationFrame(step);
+                else controls.update();
+            }
+            requestAnimationFrame(step);
+
+            // Dismiss info panel on reset
+            document.getElementById('band-info-panel').classList.remove('visible');
+        });
+
+        // --- Mobile Nav Drawer ---
+        const navPanel    = document.getElementById('nav-panel');
+        const navToggle   = document.getElementById('nav-toggle');
+        const navBackdrop = document.getElementById('nav-backdrop');
+
+        function openNav()  { navPanel.classList.add('open'); navBackdrop.classList.add('open'); navToggle.textContent = '✕'; }
+        function closeNav() { navPanel.classList.remove('open'); navBackdrop.classList.remove('open'); navToggle.textContent = '☰'; }
+
+        navToggle.addEventListener('click', () => navPanel.classList.contains('open') ? closeNav() : openNav());
+        navBackdrop.addEventListener('click', closeNav);
+
+        // Close drawer when a band button is tapped on mobile
+        document.querySelectorAll('.band-btn[data-log]').forEach(btn => btn.addEventListener('click', () => {
+            if (window.innerWidth <= 768) closeNav();
+        }));
+
+
+
+
+        // Raycaster for clicking on the ribbon to navigate
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        // Prevent click trigger during pan drag by tracking mouse movement
+        let isDragging = false;
+        let startX = 0, startY = 0;
+
+        window.addEventListener('mousedown', (e) => {
+            isDragging = false;
+            startX = e.clientX;
+            startY = e.clientY;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (Math.abs(e.clientX - startX) > 5 || Math.abs(e.clientY - startY) > 5) {
+                isDragging = true;
+            }
+        });
+
+        window.addEventListener('click', (e) => {
+            if (isDragging || e.target.tagName === 'BUTTON' || e.target.closest('#ui')) return;
+
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+
+            // Create a conceptual mathematical plane where the ribbon resides
+            const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+            const target = new THREE.Vector3();
+            raycaster.ray.intersectPlane(plane, target);
+
+            // Add some padding to the click boundary vertically due to width
+            if (target && target.x >= -200 && target.x <= 200 && Math.abs(target.z) < 50) {
+                const camStartX = camera.position.x;
+                const camTargetX = target.x;
+                const camStartZ = controls.target.z;
+                const camTargetZ = target.z;
+                const posZOffset = target.z - controls.target.z;
+                const camStartPosZ = camera.position.z;
+
+                const duration = 1000;
+                const start = performance.now();
+
+                function step(now) {
+                    const elapsed = now - start;
+                    const progress = Math.min(elapsed / duration, 1);
+                    const ease = 1 - Math.pow(1 - progress, 3);
+                    camera.position.x = camStartX + (camTargetX - camStartX) * ease;
+                    controls.target.x = camera.position.x; // Keep X lock
+
+                    camera.position.z = camStartPosZ + posZOffset * ease;
+                    controls.target.z = camStartZ + (camTargetZ - camStartZ) * ease;
+
+                    if (progress < 1) requestAnimationFrame(step);
+                    else controls.update();
+                }
+                requestAnimationFrame(step);
+            }
+        });
+
+        // --- Core Loop ---
+        const tempV = new THREE.Vector3();
+
+        function animate(time) {
+            requestAnimationFrame(animate);
+
+            ribbonMat.uniforms.uTime.value = time * 0.001;
+
+            // Sync stars
+            stars.position.x = camera.position.x * 0.5;
+
+            // Update markers
+            sceneMarkers.forEach(mark => {
+                tempV.copy(mark.pos);
+                tempV.project(camera);
+
+                if (tempV.z > 1) { // Behind camera
+                    mark.element.style.display = 'none';
+                    return;
+                }
+
+                const screenX = (tempV.x * 0.5 + 0.5) * window.innerWidth;
+                const screenY = (-(tempV.y * 0.5) + 0.5) * window.innerHeight;
+
+                // Fade out if it's too far from screen center to avoid clutter
+                const distFromCenter = Math.abs(tempV.x);
+                if (distFromCenter > 0.9) {
+                    mark.element.style.opacity = '0';
+                } else {
+                    mark.element.style.opacity = (1.0 - distFromCenter).toString();
+                }
+
+                mark.element.style.display = 'block';
+                mark.element.style.transform = `translate(-50%, -100%) translate(${screenX}px, ${screenY}px)`;
+            });
+
+            updateUI();
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Initialize at wide center of spectrum
+        camera.position.x = 0;
+        controls.target.x = 0;
+
+        animate(0);
+    </script>
+</body>
+</html>
