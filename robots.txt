@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://jordonhgriffin.github.io/Electromagnetic-Spectrum/sitemap.xml
